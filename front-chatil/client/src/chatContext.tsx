@@ -1,18 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
-
-export type ChatMessage = {
-  id: string;
-  username: string;
-  message: string;
-  type?: "message" | "system";
-};
-
-export type ChatUser = {
-  id: string;
-  username: string;
-};
+import { SOCKET_EVENTS, type ChatMessage, type ChatUser, type SocketEventMap } from "./types/chat";
 
 type ChatContextValue = {
   connected: boolean;
@@ -54,7 +43,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setStatus("Conexão encerrada.");
     });
 
-    client.on("user_joined", (data: ChatUser) => {
+    client.on(SOCKET_EVENTS.JOINED, (data: SocketEventMap[typeof SOCKET_EVENTS.JOINED]) => {
       setStatus(`${data.username} entrou no chat.`);
       setMessages((prev) => [
         ...prev,
@@ -67,7 +56,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       ]);
     });
 
-    client.on("user_left", (data: ChatUser) => {
+    client.on(SOCKET_EVENTS.LEFT, (data: SocketEventMap[typeof SOCKET_EVENTS.LEFT]) => {
       setStatus(`${data.username} saiu do chat.`);
       setMessages((prev) => [
         ...prev,
@@ -80,11 +69,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       ]);
     });
 
-    client.on("users_online_update", (onlineUsers: ChatUser[]) => {
+    client.on(SOCKET_EVENTS.USERS_UPDATE, (onlineUsers: SocketEventMap[typeof SOCKET_EVENTS.USERS_UPDATE]) => {
       setUsers(onlineUsers);
     });
 
-    client.on("receive_message", (data: { username: string; message: string }) => {
+    client.on(SOCKET_EVENTS.MESSAGE_RECEIVE, (data: SocketEventMap[typeof SOCKET_EVENTS.MESSAGE_RECEIVE]) => {
       setMessages((prev) => [
         ...prev,
         {
@@ -96,7 +85,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       ]);
     });
 
-    client.on("chat_error", (data: { message: string }) => {
+    client.on(SOCKET_EVENTS.ERROR, (data: SocketEventMap[typeof SOCKET_EVENTS.ERROR]) => {
       setError(data.message);
       setStatus("Não foi possível concluir a ação.");
     });
@@ -104,11 +93,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       client.off("connect");
       client.off("disconnect");
-      client.off("user_joined");
-      client.off("user_left");
-      client.off("users_online_update");
-      client.off("receive_message");
-      client.off("chat_error");
+      client.off(SOCKET_EVENTS.JOINED);
+      client.off(SOCKET_EVENTS.LEFT);
+      client.off(SOCKET_EVENTS.USERS_UPDATE);
+      client.off(SOCKET_EVENTS.MESSAGE_RECEIVE);
+      client.off(SOCKET_EVENTS.ERROR);
       client.disconnect();
     };
   }, []);
@@ -123,7 +112,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     setNickname(trimmed);
     setError(null);
-    socket?.emit("set_username", trimmed);
+    socket?.emit(SOCKET_EVENTS.JOIN, { username: trimmed });
   };
 
   const sendMessage = (message: string) => {
@@ -139,7 +128,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    socket?.emit("send_message", { message: trimmed });
+    socket?.emit(SOCKET_EVENTS.MESSAGE_SEND, { message: trimmed });
     return true;
   };
 
